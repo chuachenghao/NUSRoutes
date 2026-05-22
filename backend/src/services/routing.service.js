@@ -1,5 +1,137 @@
 const pool = require("../db/pool");
 const dijkstra = require("../utils/dijkstra");
+const placesService = require("./places.service");
+
+async function findNearestOsmNode(lat, lon) {
+  const result = await pool.query(`
+    SELECT osm_id, lat, lon
+    FROM osm_nodes
+  `);
+
+  let nearestNode = null;
+  let shortestDistance = Infinity;
+
+  for (const row of result.rows) {
+    const distance = getDistanceMeters(
+      Number(lat),
+      Number(lon),
+      Number(row.lat),
+      Number(row.lon)
+    );
+
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      nearestNode = row;
+    }
+  }
+
+  return {
+    osm_id: String(nearestNode.osm_id),
+    distance_m: shortestDistance
+  };
+}
+
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+
+  const toRad = (num) => num * Math.PI / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function getRouteBetweenPlaces(startPlaceName, endPlaceName) {
+  if (!startPlaceName || !endPlaceName) {
+    throw new Error("Start and end places are required");
+  }
+
+  const startResults = await placesService.searchPlaces(startPlaceName);
+  const endResults = await placesService.searchPlaces(endPlaceName);
+
+  const startPlace = startResults[0];
+  const endPlace = endResults[0];
+
+  if (!startPlace) {
+    throw new Error("Start place not found");
+  }
+
+  if (!endPlace) {
+    throw new Error("End place not found");
+  }
+
+  const startNode = await findNearestOsmNode(
+    startPlace.latitude,
+    startPlace.longitude
+  );
+
+  const endNode = await findNearestOsmNode(
+    endPlace.latitude,
+    endPlace.longitude
+  );
+
+  const route = await getShortestRoute(
+    startNode.osm_id,
+    endNode.osm_id
+  );
+
+  return {
+    start_place: {
+      id: startPlace.id,
+      name: startPlace.name,
+      latitude: startPlace.latitude,
+      longitude: startPlace.longitude,
+      nearest_osm_node: startNode.osm_id
+    },
+
+    end_place: {
+      id: endPlace.id,
+      name: endPlace.name,
+      latitude: endPlace.latitude,
+      longitude: endPlace.longitude,
+      nearest_osm_node: endNode.osm_id
+    },
+
+    distance_m: route.distance_m,
+    path: route.path,
+    coordinates: route.coordinates
+  };
+}
+
+async function getCoordinatesForPath(path) {
+  const result = await pool.query(
+    `
+    SELECT osm_id, lat, lon
+    FROM osm_nodes
+    WHERE osm_id = ANY($1)
+    `,
+    [path]
+  );
+
+  const coordinatesById = {};
+
+  for (const row of result.rows) {
+    coordinatesById[String(row.osm_id)] = {
+      lat: Number(row.lat),
+      lon: Number(row.lon)
+    };
+  }
+
+  const coordinates = [];
+
+  for (const nodeId of path) {
+    coordinates.push(coordinatesById[String(nodeId)]);
+  }
+
+  return coordinates;
+}
 
 async function getShortestRoute(startNodeId, endNodeId) {
     const start = String(startNodeId);
@@ -38,14 +170,18 @@ async function getShortestRoute(startNodeId, endNodeId) {
         throw new Error("No route found");
     }
 
+    const coordinates = await getCoordinatesForPath(shortestRoute.path);
+
     return {
         start,
         end,
         distance_m: shortestRoute.distance,
-        path: shortestRoute.path
+        path: shortestRoute.path,
+        coordinates
     };
 }
 
 module.exports = {
-    getShortestRoute
+    getShortestRoute,
+    getRouteBetweenPlaces,
 };
