@@ -3,7 +3,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "db:import-venues": "node src/db/nusmods-venues.js"
+    "db:import-venues": "node src/db/nusmods-venues.js",
+    "import:osm": "node src/db/osm.js"
   },
   "type": "commonjs",
   "dependencies": {
