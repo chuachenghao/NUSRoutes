@@ -7,7 +7,7 @@ const query = `
 [out:json][timeout:25];
 
 (
-  way["highway"~"footway|path|pedestrian|steps"]
+  way["highway"~"footway|path|pedestrian|steps|service|residential|living_street"]
     (1.287,103.770,1.305,103.787);
 );
 
@@ -76,8 +76,6 @@ async function fetchOsmData() {
 }
 
 async function importOsm() {
-  await createTables();
-
   console.log("Fetching OSM data...");
   const data = await fetchOsmData();
 
@@ -109,6 +107,10 @@ async function importOsm() {
       `
       INSERT INTO osm_nodes (osm_id, lat, lon)
       VALUES ($1, $2, $3)
+      ON CONFLICT (osm_id)
+      DO UPDATE SET
+        lat = EXCLUDED.lat,
+        lon = EXCLUDED.lon
       `,
       [node.id, node.lat, node.lon]
     );
@@ -135,18 +137,44 @@ async function importOsm() {
 
       await pool.query(
         `
-        INSERT INTO route_edges (from_node_id, to_node_id, distance_m, source)
-        VALUES ($1, $2, $3, 'osm')
+        INSERT INTO route_edges (
+          from_node_id,
+          to_node_id,
+          distance_m,
+          source,
+          way_id,
+          highway
+        )
+        VALUES ($1, $2, $3, 'osm', $4, $5)
         `,
-        [fromId, toId, distance]
+        [
+          fromId,
+          toId,
+          distance,
+          way.id,
+          way.tags?.highway || null
+        ]
       );
 
       await pool.query(
         `
-        INSERT INTO route_edges (from_node_id, to_node_id, distance_m, source)
-        VALUES ($1, $2, $3, 'osm')
+        INSERT INTO route_edges (
+          from_node_id,
+          to_node_id,
+          distance_m,
+          source,
+          way_id,
+          highway
+        )
+        VALUES ($1, $2, $3, 'osm', $4, $5)
         `,
-        [toId, fromId, distance]
+        [
+          toId,
+          fromId,
+          distance,
+          way.id,
+          way.tags?.highway || null
+        ]
       );
 
       edgeCount += 2;

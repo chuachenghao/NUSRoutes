@@ -1,11 +1,5 @@
-require('dotenv').config();
-const pg = require("pg");
-const { Pool } = pg;
+const pool = require("./pool");
 const fetch = globalThis.fetch || require("node-fetch");
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 const VENUES_URL =
   "https://raw.githubusercontent.com/nusmodifications/nusmods/refs/heads/master/website/api/optimiser/_constants/venues.json";
@@ -59,25 +53,32 @@ async function importNusmodsVenues() {
         venue_code,
         name,
         type,
+        category,
         building_code,
         room_name,
         floor,
         latitude,
         longitude,
         google_maps_url,
-        description
+        description,
+        keywords,
+        source
       )
-      VALUES ($1, $2, 'venue', $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, 'venue', 'nusmods_venue', $3, $4, $5, $6, $7, $8, $9, $10, 'nusmods')
       ON CONFLICT (venue_code)
       DO UPDATE SET
         name = EXCLUDED.name,
+        type = EXCLUDED.type,
+        category = EXCLUDED.category,
         building_code = EXCLUDED.building_code,
         room_name = EXCLUDED.room_name,
         floor = EXCLUDED.floor,
         latitude = EXCLUDED.latitude,
         longitude = EXCLUDED.longitude,
         google_maps_url = EXCLUDED.google_maps_url,
-        description = EXCLUDED.description
+        description = EXCLUDED.description,
+        keywords = EXCLUDED.keywords,
+        source = EXCLUDED.source
       `,
       [
         venueCode,
@@ -89,6 +90,7 @@ async function importNusmodsVenues() {
         longitude,
         googleMapsUrl,
         `NUSMods venue: ${roomName}`,
+        [venueCode, roomName, buildingCode].filter(Boolean)
       ]
     );
 

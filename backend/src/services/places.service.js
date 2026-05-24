@@ -1,21 +1,30 @@
 const pool = require("../db/pool");
 
+const PLACE_FIELDS = `
+  id,
+  venue_code,
+  name,
+  type,
+  category,
+  building_code,
+  room_name,
+  floor,
+  latitude,
+  longitude,
+  google_maps_url,
+  description,
+  keywords,
+  source,
+  osm_id,
+  osm_type
+`;
+
 async function getAllPlaces() {
   const result = await pool.query(`
     SELECT
-      id,
-      venue_code,
-      name,
-      type,
-      building_code,
-      room_name,
-      floor,
-      latitude,
-      longitude,
-      google_maps_url,
-      description
+      ${PLACE_FIELDS}
     FROM places
-    ORDER BY venue_code ASC
+    ORDER BY name ASC
   `);
 
   return result.rows;
@@ -70,30 +79,34 @@ async function getPlacesByVenueCode(venueCode) {
 }
 
 async function searchPlaces(query) {
-    const result = await pool.query(
-        `
-        SELECT
-        id,
-        venue_code,
-        name,
-        type,
-        building_code,
-        room_name,
-        floor,
-        latitude,
-        longitude,
-        google_maps_url,
-        description
-        FROM places
-        WHERE LOWER(venue_code) LIKE LOWER($1)
-        OR LOWER(name) LIKE LOWER($1)
-        OR LOWER(room_name) LIKE LOWER($1)
-        OR LOWER(building_code) LIKE LOWER($1)
-        `,
-        [`%${query}%`]
-    )
+  const result = await pool.query(
+    `
+    SELECT
+      ${PLACE_FIELDS}
+    FROM places
+    WHERE LOWER(COALESCE(venue_code, '')) LIKE LOWER($1)
+       OR LOWER(COALESCE(name, '')) LIKE LOWER($1)
+       OR LOWER(COALESCE(room_name, '')) LIKE LOWER($1)
+       OR LOWER(COALESCE(building_code, '')) LIKE LOWER($1)
+       OR EXISTS (
+          SELECT 1
+          FROM unnest(keywords) AS keyword
+          WHERE LOWER(keyword) LIKE LOWER($1)
+       )
+    ORDER BY
+      CASE
+        WHEN LOWER(name) = LOWER($2) THEN 0
+        WHEN LOWER(COALESCE(venue_code, '')) = LOWER($2) THEN 1
+        WHEN LOWER(name) LIKE LOWER($1) THEN 2
+        ELSE 3
+      END,
+      name ASC
+    LIMIT 20
+    `,
+    [`%${query}%`, query]
+  );
 
-    return result.rows;
+  return result.rows;
 }
 
 async function getPlacesByBuilding(buildingCode) {
@@ -166,62 +179,67 @@ async function getNearbyPlaces(latitude, longitude) {
 }
 
 async function createPlace(placeData) {
-    const {
-        venue_code,
-        name,
-        type = "venue",
-        building_code = null,
-        room_name = null,
-        floor = null,
-        latitude,
-        longitude,
-        google_maps_url = null,
-        description = null,
-    } = placeData;
+  const {
+    venue_code = null,
+    name,
+    type = "other",
+    category = null,
+    building_code = null,
+    room_name = null,
+    floor = null,
+    latitude,
+    longitude,
+    google_maps_url = null,
+    description = null,
+    keywords = [],
+    source = "manual",
+    osm_id = null,
+    osm_type = null
+  } = placeData;
 
-    const result = await pool.query(
-        `
-        INSERT INTO places (
-        venue_code,
-        name,
-        type,
-        building_code,
-        room_name,
-        floor,
-        latitude,
-        longitude,
-        google_maps_url,
-        description
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING
-        id,
-        venue_code,
-        name,
-        type,
-        building_code,
-        room_name,
-        floor,
-        latitude,
-        longitude,
-        google_maps_url,
-        description
-        `,
-        [
-            venue_code,
-            name,
-            type,
-            building_code,
-            room_name,
-            floor,
-            latitude,
-            longitude,
-            google_maps_url,
-            description,
-        ]
-    );
+  const result = await pool.query(
+    `
+    INSERT INTO places (
+      venue_code,
+      name,
+      type,
+      category,
+      building_code,
+      room_name,
+      floor,
+      latitude,
+      longitude,
+      google_maps_url,
+      description,
+      keywords,
+      source,
+      osm_id,
+      osm_type
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    RETURNING
+      ${PLACE_FIELDS}
+    `,
+    [
+      venue_code,
+      name,
+      type,
+      category,
+      building_code,
+      room_name,
+      floor,
+      latitude,
+      longitude,
+      google_maps_url,
+      description,
+      keywords,
+      source,
+      osm_id,
+      osm_type
+    ]
+  );
 
-    return result.rows[0];
+  return result.rows[0];
 }
 
 async function deletePlace(id) {

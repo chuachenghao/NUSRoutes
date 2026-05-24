@@ -52,9 +52,20 @@ function dijkstra(graph, start, end) {
   const path = [];
   let current = end;
 
-  while (current !== null) {
+  // Avoid infinite loops when `previous` is undefined
+  let safety = 0;
+  const maxIter = Object.keys(graph).length + 5;
+
+  while (current !== null && current !== undefined && safety < maxIter) {
     path.unshift(current);
+    if (current === start) break;
+    // If previous[current] is undefined (node not reachable or missing), stop
+    if (previous[current] === undefined) {
+      current = null;
+      break;
+    }
     current = previous[current];
+    safety += 1;
   }
 
   // If the path does not start with start, no route exists
@@ -70,3 +81,5 @@ function dijkstra(graph, start, end) {
     path: path
   };
 }
+
+module.exports = dijkstra;

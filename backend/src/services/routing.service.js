@@ -25,6 +25,10 @@ async function findNearestOsmNode(lat, lon) {
     }
   }
 
+  if (!nearestNode) {
+    throw new Error("No OSM nodes available");
+  }
+
   return {
     osm_id: String(nearestNode.osm_id),
     distance_m: shortestDistance
@@ -106,28 +110,36 @@ async function getRouteBetweenPlaces(startPlaceName, endPlaceName) {
 }
 
 async function getCoordinatesForPath(path) {
+  const numericPath = path.map(Number);
+
   const result = await pool.query(
     `
     SELECT osm_id, lat, lon
     FROM osm_nodes
-    WHERE osm_id = ANY($1)
+    WHERE osm_id = ANY($1::bigint[])
     `,
-    [path]
+    [numericPath]
   );
 
   const coordinatesById = {};
 
   for (const row of result.rows) {
     coordinatesById[String(row.osm_id)] = {
-      lat: Number(row.lat),
-      lon: Number(row.lon)
+      latitude: Number(row.lat),
+      longitude: Number(row.lon)
     };
   }
 
   const coordinates = [];
 
   for (const nodeId of path) {
-    coordinates.push(coordinatesById[String(nodeId)]);
+    const c = coordinatesById[String(nodeId)];
+
+    if (!c) {
+      throw new Error(`Missing coordinates for osm node ${nodeId}`);
+    }
+
+    coordinates.push(c);
   }
 
   return coordinates;
@@ -162,6 +174,21 @@ async function getShortestRoute(startNodeId, endNodeId) {
             node: to,
             weight: weight
         });
+    }
+
+    // Ensure nodes that only appear as `to` are present in the graph
+    for (const row of result.rows) {
+      const to = String(row.to_node_id);
+      if (!graph[to]) graph[to] = [];
+    }
+
+    // Ensure start and end nodes exist in graph
+    if (!graph[start]) {
+      throw new Error("Start node not found in routing graph");
+    }
+
+    if (!graph[end]) {
+      throw new Error("End node not found in routing graph");
     }
 
     const shortestRoute = dijkstra(graph, start, end);

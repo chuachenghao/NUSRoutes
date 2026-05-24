@@ -42,13 +42,13 @@ router.get("/venue/:venueCode", async (req, res) => {
   try {
     const { venueCode } = req.params;
 
-    const place = await getPlacesByVenueCode(venueCode);
+    const places = await getPlacesByVenueCode(venueCode);
 
-    if (!place) {
+    if (places.length === 0) {
       return res.status(404).json({ error: "Place not found" });
     }
 
-    res.json(place);
+    res.json(places);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch venue" });
@@ -110,11 +110,20 @@ router.post("/", async (req, res) => {
   try {
     const placeData = req.body;
 
-    if (!placeData.venue_code || !placeData.name || !placeData.latitude || !placeData.longitude) {
-      return res.status(400).json({ error: "Missing required place fields" });
+    const latitude = Number(placeData.latitude);
+    const longitude = Number(placeData.longitude);
+
+    if (!placeData.name || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      return res.status(400).json({
+        error: "name, valid latitude, and valid longitude are required"
+      });
     }
 
-    const newPlace = await createPlace(placeData);
+    const newPlace = await createPlace({
+      ...placeData,
+      latitude,
+      longitude
+    });
 
     res.status(201).json(newPlace);
   } catch (error) {
