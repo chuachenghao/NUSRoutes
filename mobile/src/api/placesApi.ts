@@ -5,6 +5,8 @@ export type BasicPlace = {
   name: string;
   type?: string | null;
   category?: string | null;
+  latitude?: number | string| null; //added long and lat 
+  longitude?: number | string | null; //added
 };
 
 function normalizePlace(place: any): BasicPlace | null {
@@ -16,6 +18,8 @@ function normalizePlace(place: any): BasicPlace | null {
     name: String(place.name),
     type: place.type ?? null,
     category: place.category ?? null,
+    latitude: place.latitude ?? place.lat ?? null,  //added
+    longitude: place.longitude ?? place.lon ?? place.lng ?? null, //added
   };
 }
 

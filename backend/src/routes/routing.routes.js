@@ -16,7 +16,11 @@ router.get("/", async (req, res) => {
   } catch (err) {
     // log error and return a controlled response
     console.error("Routing error:", err);
-    const status = (err.message && (err.message.includes("not found") || err.message.includes("required"))) ? 404 : 500;
+    const notFound = err.message && (
+      err.message === "Start place not found" ||
+      err.message === "End place not found"
+    );
+    const status = notFound ? 404 : 500;
     res.status(status).json({ error: err.message });
   }
 });

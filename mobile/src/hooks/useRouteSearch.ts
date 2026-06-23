@@ -44,6 +44,30 @@ export function useRouteSearch() {
     }
   }
 
+  // used when the user taps a saved journey. findRoute reads the state values
+  // which dont update straight away, so i just pass the names in directly here
+  async function runJourney(s: string, e: string) {
+    setStartPlace(s);
+    setEndPlace(e);
+
+    setLoadingRoute(true);
+    setRoute(null);
+    setRouteMessage("");
+
+    try {
+      const data = await getRoute(s, e);
+
+      if (!data) {
+        setRouteMessage("No route found for these places.");
+        return;
+      }
+
+      setRoute(data);
+    } finally {
+      setLoadingRoute(false);
+    }
+  }
+
   return {
     startPlace,
     endPlace,
@@ -53,5 +77,6 @@ export function useRouteSearch() {
     loadingRoute,
     routeMessage,
     findRoute,
+    runJourney,
   };
 }

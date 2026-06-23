@@ -20,6 +20,8 @@ type RouteSearchPanelProps = {
 
   onFindRoute: () => void;
   loading: boolean;
+  onUseMyLocation: () => void;
+  locating:boolean;
 };
 
 export default function RouteSearchPanel({
@@ -30,10 +32,21 @@ export default function RouteSearchPanel({
   onEndPlaceChange,
   onFindRoute,
   loading,
+  onUseMyLocation,
+  locating,
 }: RouteSearchPanelProps) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Where to?</Text>
+      <Pressable
+        style = {styles.locationBtn}
+        onPress={onUseMyLocation}
+        disabled={locating}
+        >
+          <Text style ={styles.locationBtnText}>
+            {locating ? "Locating...": "Use my location as start"}
+          </Text>
+          </Pressable>
 
       <PlaceSelector
         label="Start"
@@ -97,4 +110,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
   },
+  locationBtn: {
+  alignSelf: "flex-start",
+  paddingVertical: 6,
+  paddingHorizontal: 10,
+  borderRadius: 14,
+  backgroundColor: "#eef2ff",
+  marginBottom: 10,
+},
+locationBtnText: { color: "#2563eb", fontWeight: "700", fontSize: 13 },
 });

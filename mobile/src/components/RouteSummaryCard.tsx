@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { RouteResponse } from "../types/route";
+import { useProfile } from "../context/ProfileContext";
 
 type RouteSummaryCardProps = {
   route: RouteResponse | null;
@@ -27,6 +28,9 @@ export default function RouteSummaryCard({
   route,
   message,
 }: RouteSummaryCardProps) {
+  // grab the saving helpers from the profile context
+  const { isSaved, toggleSavedPlace, addJourney } = useProfile();
+
   if (!route) {
     return (
       <View style={styles.card}>
@@ -65,6 +69,32 @@ export default function RouteSummaryCard({
       <View style={styles.metaRow}>
         <Text style={styles.meta}>Nodes: {pathCount}</Text>
         <Text style={styles.meta}>Points: {coordinateCount}</Text>
+      </View>
+
+      {/* save buttons - one for the place, one for the whole journey */}
+      <View style={styles.saveRow}>
+        <Pressable
+          style={styles.saveBtn}
+          onPress={() =>
+            toggleSavedPlace({
+              id: String(route.end_place.id),
+              name: route.end_place.name,
+            })
+          }
+        >
+          <Text style={styles.saveBtnText}>
+            {isSaved(String(route.end_place.id)) ? "★ Saved" : "☆ Save place"}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.saveBtn}
+          onPress={() =>
+            addJourney(route.start_place.name, route.end_place.name)
+          }
+        >
+          <Text style={styles.saveBtnText}>+ Save journey</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -123,5 +153,21 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
     color: "#777777",
+  },
+  saveRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  saveBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: "#eef2ff",
+  },
+  saveBtnText: {
+    color: "#2563eb",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });
