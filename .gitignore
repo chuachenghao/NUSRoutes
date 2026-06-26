@@ -25,3 +25,4 @@ android/
 # large media (optional - remove if you want it tracked)
 milestone1_video.mp4
 .env.sabe
+.env.save
