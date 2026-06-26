@@ -10,7 +10,6 @@ type Ctx = {
   profile: Profile| null;
   savedPlaces: SavedPlace[];
   journeys: Journey[];
-  ready: boolean;
   createProfile: (name: string) => void;
   signOut: () => void;
   toggleSavedPlace: (place: SavedPlace) => void;
@@ -87,7 +86,7 @@ export function ProfileProvider({children }: {children: ReactNode }) {
   return (
     <ProfileContext.Provider
       value={{
-        profile, savedPlaces, journeys, ready,
+        profile, savedPlaces, journeys,
         createProfile, signOut, toggleSavedPlace, isSaved,
         addJourney, removeJourney,
       }}

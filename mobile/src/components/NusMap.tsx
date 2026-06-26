@@ -5,6 +5,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import { NUS_REGION } from "../constants/map";
 import type { Announcement } from "../types/announcement";
 import type { RouteResponse } from "../types/route";
+import type { RouteMode } from "../types/route";
 
 const ANNOUNCEMENT_PIN_COLORS: Record<Announcement["type"], string> = {
   closure: "red",
@@ -16,18 +17,24 @@ const ANNOUNCEMENT_PIN_COLORS: Record<Announcement["type"], string> = {
 type NusMapProps = {
   route: RouteResponse | null;
   announcements: Announcement[];
-  userCoords?: { latitude: number; longitude: number}|null; //added
+  userCoords?: { latitude: number; longitude: number } | null;
+  routeMode: RouteMode;
 };
 
-export default function NusMap({ route, announcements, userCoords }: NusMapProps) {
+export default function NusMap({
+  route,
+  announcements,
+  userCoords,
+  routeMode,
+}: NusMapProps) {
   const mapRef = useRef<MapView | null>(null);
 
   const routeCoordinates = useMemo(() => {
     return (
       route?.coordinates
         ?.map((coordinate) => ({
-          latitude: Number(coordinate.latitude ?? coordinate.lat),
-          longitude: Number(coordinate.longitude ?? coordinate.lon),
+          latitude: Number(coordinate.latitude),
+          longitude: Number(coordinate.longitude),
         }))
         .filter(
           (coordinate) =>
@@ -48,14 +55,15 @@ export default function NusMap({ route, announcements, userCoords }: NusMapProps
 
   const startCoordinate = routeCoordinates[0];
   const endCoordinate = routeCoordinates[routeCoordinates.length - 1];
+  const routeSegments = route?.route_segments ?? [];
 
   useEffect(() => {
     if (routeCoordinates.length > 1) {
       mapRef.current?.fitToCoordinates(routeCoordinates, {
         edgePadding: {
-          top: 260,
+          top: route ? 110 : 260,
           right: 100,
-          bottom: 300,
+          bottom: route ? 350 : 300,
           left: 100,
         },
         animated: true,
@@ -72,8 +80,35 @@ export default function NusMap({ route, announcements, userCoords }: NusMapProps
         showsUserLocation
         showsMyLocationButton
       >
-        {routeCoordinates.length > 1 ? (
-          <Polyline coordinates={routeCoordinates} strokeWidth={5} />
+        {routeSegments.map((segment, index) =>
+          segment.is_sheltered ? (
+            <Polyline
+              key={`shelter-outline-${index}`}
+              coordinates={segment.coordinates}
+              strokeColor="#1f2937"
+              strokeWidth={8}
+            />
+          ) : null
+        )}
+
+        {routeSegments.map((segment, index) => (
+          <Polyline
+            key={`route-section-${index}`}
+            coordinates={segment.coordinates}
+            strokeColor={segment.is_sheltered ? "#ffffff" : "#2563eb"}
+            strokeWidth={5}
+          />
+        ))}
+
+        {routeCoordinates.length > 1 && routeSegments.length === 0 && routeMode === "sheltered" ? (
+          <>
+            <Polyline coordinates={routeCoordinates} strokeColor="#1f2937" strokeWidth={8} />
+            <Polyline coordinates={routeCoordinates} strokeColor="#ffffff" strokeWidth={5} />
+          </>
+        ) : null}
+
+        {routeCoordinates.length > 1 && routeSegments.length === 0 && routeMode === "fastest" ? (
+          <Polyline coordinates={routeCoordinates} strokeColor="#2563eb" strokeWidth={5} />
         ) : null}
 
         {startCoordinate ? (
@@ -103,6 +138,7 @@ export default function NusMap({ route, announcements, userCoords }: NusMapProps
           />
         ))}
       </MapView>
+
     </View>
   );
 }

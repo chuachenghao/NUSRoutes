@@ -4,14 +4,15 @@ const router = express.Router();
 const routingService = require("../services/routing.service");
 
 router.get("/", async (req, res) => {
-  const { start, end } = req.query;
+  const { start, end, mode } = req.query;
 
   if (!start || !end) {
     return res.status(400).json({ error: "start and end query parameters are required" });
   }
 
   try {
-    const result = await routingService.getRouteBetweenPlaces(start, end);
+    const routeMode = mode === "sheltered" ? "sheltered" : "fastest";
+    const result = await routingService.getRouteBetweenPlaces(start, end, routeMode);
     res.json(result);
   } catch (err) {
     // log error and return a controlled response

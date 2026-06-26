@@ -71,13 +71,11 @@ function dijkstra(graph, start, end) {
   // If the path does not start with start, no route exists
   if (path[0] !== start) {
     return {
-      distance: Infinity,
       path: []
     };
   }
 
   return {
-    distance: distances[end],
     path: path
   };
 }

@@ -1,6 +1,9 @@
 const pool = require("../db/pool");
+const axios = require("axios");
 const dijkstra = require("../utils/dijkstra");
 const placesService = require("./places.service");
+
+const WEATHER_URL = "https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast";
 
 async function findNearestOsmNode(lat, lon) {
   const result = await pool.query(`
@@ -52,7 +55,34 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-async function getRouteBetweenPlaces(startPlaceName, endPlaceName) {
+function isWetWeather(forecast) {
+  return /rain|shower|thunder|drizzle/i.test(forecast || "");
+}
+
+async function getWeatherSuggestion() {
+  const response = await axios.get(WEATHER_URL, { timeout: 5000 });
+  const item = response.data?.data?.items?.[0];
+  const forecasts = item?.forecasts || [];
+  const weather = forecasts.find((forecast) => forecast.area === "Queenstown") ||
+    forecasts.find((forecast) => forecast.area === "Clementi");
+
+  if (!weather?.forecast) {
+    return null;
+  }
+
+  const wetWeather = isWetWeather(weather.forecast);
+
+  return {
+    area: weather.area,
+    forecast: weather.forecast,
+    suggested_mode: wetWeather ? "sheltered" : "fastest",
+    reason: wetWeather
+      ? "Raining bro get under shelter."
+      : "Sunny skies today."
+  };
+}
+
+async function getRouteBetweenPlaces(startPlaceName, endPlaceName, mode = "fastest") {
   if (!startPlaceName || !endPlaceName) {
     throw new Error("Start and end places are required");
   }
@@ -81,10 +111,12 @@ async function getRouteBetweenPlaces(startPlaceName, endPlaceName) {
     endPlace.longitude
   );
 
-  const route = await getShortestRoute(
-    startNode.osm_id,
-    endNode.osm_id
-  );
+  const routeMode = mode === "sheltered" ? "sheltered" : "fastest";
+  const route = await getShortestRoute(startNode.osm_id, endNode.osm_id, routeMode);
+  const weatherSuggestion = await getWeatherSuggestion().catch((err) => {
+    console.error("Weather suggestion error:", err.message);
+    return null;
+  });
 
   return {
     start_place: {
@@ -105,7 +137,11 @@ async function getRouteBetweenPlaces(startPlaceName, endPlaceName) {
 
     distance_m: route.distance_m,
     path: route.path,
-    coordinates: route.coordinates
+    coordinates: route.coordinates,
+    route_segments: route.route_segments,
+    route_mode: routeMode,
+    sheltered_ratio: route.sheltered_ratio,
+    weather_suggestion: weatherSuggestion
   };
 }
 
@@ -145,7 +181,7 @@ async function getCoordinatesForPath(path) {
   return coordinates;
 }
 
-async function getShortestRoute(startNodeId, endNodeId) {
+async function getShortestRoute(startNodeId, endNodeId, mode = "fastest") {
     const start = String(startNodeId);
     const end = String(endNodeId);
     const result = await pool.query(
@@ -154,7 +190,7 @@ async function getShortestRoute(startNodeId, endNodeId) {
         from_node_id,
         to_node_id,
         distance_m,
-        source
+        is_sheltered
         FROM route_edges
         `
     );
@@ -164,16 +200,30 @@ async function getShortestRoute(startNodeId, endNodeId) {
     for (const row of result.rows) {
         const from = String(row.from_node_id);
         const to = String(row.to_node_id);
-        const weight = Number(row.distance_m);
+        const distance = Number(row.distance_m);
+        const sheltered = Boolean(row.is_sheltered);
+        const weight = mode === "sheltered" && !sheltered ? distance * 3 : distance;
 
         if (!graph[from]) {
             graph[from] = [];
         }
 
-        graph[from].push({
+        const existingEdge = graph[from].find((edge) => edge.node === to);
+
+        if (!existingEdge || weight < existingEdge.weight) {
+          const edge = {
             node: to,
-            weight: weight
-        });
+            weight,
+            distance_m: distance,
+            is_sheltered: sheltered
+          };
+
+          if (existingEdge) {
+            Object.assign(existingEdge, edge);
+          } else {
+            graph[from].push(edge);
+          }
+        }
     }
 
     // Ensure nodes that only appear as `to` are present in the graph
@@ -199,16 +249,46 @@ async function getShortestRoute(startNodeId, endNodeId) {
 
     const coordinates = await getCoordinatesForPath(shortestRoute.path);
 
+    let distanceM = 0;
+    let shelteredDistanceM = 0;
+    const routeSegments = [];
+
+    for (let i = 0; i < shortestRoute.path.length - 1; i++) {
+      const from = shortestRoute.path[i];
+      const to = shortestRoute.path[i + 1];
+      const edge = graph[from].find((item) => item.node === to);
+
+      if (!edge) continue;
+
+      distanceM += edge.distance_m;
+
+      if (edge.is_sheltered) {
+        shelteredDistanceM += edge.distance_m;
+      }
+
+      const lastSegment = routeSegments[routeSegments.length - 1];
+
+      if (lastSegment && lastSegment.is_sheltered === edge.is_sheltered) {
+        lastSegment.coordinates.push(coordinates[i + 1]);
+      } else {
+        routeSegments.push({
+          is_sheltered: edge.is_sheltered,
+          coordinates: [coordinates[i], coordinates[i + 1]]
+        });
+      }
+    }
+
     return {
-        start,
-        end,
-        distance_m: shortestRoute.distance,
+        distance_m: distanceM,
         path: shortestRoute.path,
-        coordinates
+        coordinates,
+        route_segments: routeSegments,
+        sheltered_ratio: distanceM > 0
+          ? Math.round((shelteredDistanceM / distanceM) * 100)
+          : 0
     };
 }
 
 module.exports = {
-    getShortestRoute,
     getRouteBetweenPlaces,
 };

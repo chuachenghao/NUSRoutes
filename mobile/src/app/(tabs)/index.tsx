@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 
 import NusMap from "../../components/NusMap";
@@ -23,10 +23,13 @@ export default function HomeScreen() {
     setStartPlace,
     setEndPlace,
     route,
+    routeMode,
     loadingRoute,
     routeMessage,
     findRoute,
+    changeRouteMode,
     runJourney,
+    clearRoute,
   } = useRouteSearch();
 
   // if we came from the Saved tab it sends start + end as params, so just run it
@@ -49,20 +52,33 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <NusMap route={route} announcements={announcements} userCoords={coords} />
+      <NusMap
+        route={route}
+        announcements={announcements}
+        userCoords={coords}
+        routeMode={routeMode}
+      />
 
       <View style={styles.topPanel}>
-        <RouteSearchPanel
-          places={places}
-          startPlace={startPlace}
-          endPlace={endPlace}
-          onStartPlaceChange={setStartPlace}
-          onEndPlaceChange={setEndPlace}
-          onFindRoute={findRoute}
-          loading={loadingRoute}
-          onUseMyLocation={handleUseMyLocation}
-          locating={loadingLocation}
-        />
+        {route ? (
+          <Pressable style={styles.backButton} onPress={clearRoute}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </Pressable>
+        ) : (
+          <RouteSearchPanel
+            places={places}
+            startPlace={startPlace}
+            endPlace={endPlace}
+            onStartPlaceChange={setStartPlace}
+            onEndPlaceChange={setEndPlace}
+            onFindRoute={findRoute}
+            routeMode={routeMode}
+            onRouteModeChange={changeRouteMode}
+            loading={loadingRoute}
+            onUseMyLocation={handleUseMyLocation}
+            locating={loadingLocation}
+          />
+        )}
       </View>
 
       <View style={styles.bottomPanel}>
@@ -83,6 +99,26 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 20,
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    shadowColor: "#000000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 6,
+  },
+  backButtonText: {
+    color: "#2563eb",
+    fontSize: 15,
+    fontWeight: "700",
   },
   bottomPanel: {
     position: "absolute",

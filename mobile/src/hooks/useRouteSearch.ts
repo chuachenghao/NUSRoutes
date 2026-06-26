@@ -1,18 +1,19 @@
 import { useState } from "react";
 
 import { getRoute } from "../api/routesApi";
-import type { RouteResponse } from "../types/route";
+import type { RouteMode, RouteResponse } from "../types/route";
 
 export function useRouteSearch() {
   const [startPlace, setStartPlace] = useState("");
   const [endPlace, setEndPlace] = useState("");
   const [route, setRoute] = useState<RouteResponse | null>(null);
+  const [routeMode, setRouteMode] = useState<RouteMode>("fastest");
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [routeMessage, setRouteMessage] = useState("");
 
-  async function findRoute() {
-    const trimmedStart = startPlace.trim();
-    const trimmedEnd = endPlace.trim();
+  async function findRouteForPlaces(start: string, end: string, mode: RouteMode) {
+    const trimmedStart = start.trim();
+    const trimmedEnd = end.trim();
 
     if (!trimmedStart || !trimmedEnd) {
       setRoute(null);
@@ -31,7 +32,7 @@ export function useRouteSearch() {
     setRouteMessage("");
 
     try {
-      const data = await getRoute(trimmedStart, trimmedEnd);
+      const data = await getRoute(trimmedStart, trimmedEnd, mode);
 
       if (!data) {
         setRouteMessage("No route found for these places.");
@@ -44,28 +45,25 @@ export function useRouteSearch() {
     }
   }
 
+  async function findRoute() {
+    await findRouteForPlaces(startPlace, endPlace, routeMode);
+  }
+
+  function changeRouteMode(mode: RouteMode) {
+    setRouteMode(mode);
+  }
+
   // used when the user taps a saved journey. findRoute reads the state values
   // which dont update straight away, so i just pass the names in directly here
   async function runJourney(s: string, e: string) {
     setStartPlace(s);
     setEndPlace(e);
+    await findRouteForPlaces(s, e, routeMode);
+  }
 
-    setLoadingRoute(true);
+  function clearRoute() {
     setRoute(null);
     setRouteMessage("");
-
-    try {
-      const data = await getRoute(s, e);
-
-      if (!data) {
-        setRouteMessage("No route found for these places.");
-        return;
-      }
-
-      setRoute(data);
-    } finally {
-      setLoadingRoute(false);
-    }
   }
 
   return {
@@ -74,9 +72,12 @@ export function useRouteSearch() {
     setStartPlace,
     setEndPlace,
     route,
+    routeMode,
     loadingRoute,
     routeMessage,
     findRoute,
+    changeRouteMode,
     runJourney,
+    clearRoute,
   };
 }

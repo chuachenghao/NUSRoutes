@@ -81,10 +81,14 @@ CREATE TABLE IF NOT EXISTS route_edges (
     -- OSM way metadata.
     way_id BIGINT,
     highway TEXT,
+    is_sheltered BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT route_edges_distance_check
         CHECK (distance_m >= 0)
 );
+
+ALTER TABLE route_edges
+ADD COLUMN IF NOT EXISTS is_sheltered BOOLEAN NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_route_edges_from_node
 ON route_edges(from_node_id);

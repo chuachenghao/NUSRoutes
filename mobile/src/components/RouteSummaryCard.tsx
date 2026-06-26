@@ -34,7 +34,6 @@ export default function RouteSummaryCard({
   if (!route) {
     return (
       <View style={styles.card}>
-        <View style={styles.handle} />
         <Text style={styles.title}>No route selected</Text>
         <Text style={styles.subtitle}>
           {message || "Enter a start and destination to find a route."}
@@ -43,18 +42,23 @@ export default function RouteSummaryCard({
     );
   }
 
-  const pathCount = route.path?.length ?? 0;
-  const coordinateCount = route.coordinates?.length ?? 0;
-
   return (
     <View style={styles.card}>
-      <View style={styles.handle} />
-
       <Text style={styles.title}>{formatDistance(route.distance_m)}</Text>
 
       <Text style={styles.subtitle}>
         Approx. {estimateWalkingMinutes(route.distance_m)} min walk
       </Text>
+
+      <Text style={styles.routeType}>
+        {route.route_mode === "sheltered"
+          ? `Shelter-preferred route (${route.sheltered_ratio}% sheltered)`
+          : "Fastest walking route"}
+      </Text>
+
+      {route.weather_suggestion ? (
+        <Text style={styles.weather}>{route.weather_suggestion.reason}</Text>
+      ) : null}
 
       <View style={styles.row}>
         <Text style={styles.label}>From</Text>
@@ -64,11 +68,6 @@ export default function RouteSummaryCard({
       <View style={styles.row}>
         <Text style={styles.label}>To</Text>
         <Text style={styles.value}>{route.end_place?.name ?? "Unknown"}</Text>
-      </View>
-
-      <View style={styles.metaRow}>
-        <Text style={styles.meta}>Nodes: {pathCount}</Text>
-        <Text style={styles.meta}>Points: {coordinateCount}</Text>
       </View>
 
       {/* save buttons - one for the place, one for the whole journey */}
@@ -103,6 +102,7 @@ export default function RouteSummaryCard({
 const styles = StyleSheet.create({
   card: {
     padding: 18,
+    paddingTop: 28,
     borderRadius: 24,
     backgroundColor: "#ffffff",
     shadowColor: "#000000",
@@ -114,14 +114,6 @@ const styles = StyleSheet.create({
     },
     elevation: 10,
   },
-  handle: {
-    alignSelf: "center",
-    width: 44,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "#dddddd",
-    marginBottom: 14,
-  },
   title: {
     fontSize: 26,
     fontWeight: "900",
@@ -131,6 +123,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
     marginBottom: 14,
+  },
+  routeType: {
+    fontSize: 13,
+    color: "#2563eb",
+    fontWeight: "700",
+    marginTop: -6,
+    marginBottom: 10,
+  },
+  weather: {
+    fontSize: 13,
+    color: "#475569",
+    marginBottom: 6,
   },
   row: {
     marginTop: 8,
@@ -144,15 +148,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     marginTop: 2,
-  },
-  metaRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 14,
-  },
-  meta: {
-    fontSize: 12,
-    color: "#777777",
   },
   saveRow: {
     flexDirection: "row",

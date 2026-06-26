@@ -16,24 +16,17 @@ out body;
 out skel qt;
 `;
 
-async function createTables() {
+async function ensureShelterColumn() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS osm_nodes (
-      osm_id BIGINT PRIMARY KEY,
-      lat DOUBLE PRECISION NOT NULL,
-      lon DOUBLE PRECISION NOT NULL
-    );
+    ALTER TABLE route_edges
+    ADD COLUMN IF NOT EXISTS is_sheltered BOOLEAN NOT NULL DEFAULT false
   `);
+}
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS route_edges (
-      id SERIAL PRIMARY KEY,
-      from_node_id BIGINT NOT NULL,
-      to_node_id BIGINT NOT NULL,
-      distance_m DOUBLE PRECISION NOT NULL,
-      source TEXT DEFAULT 'osm'
-    );
-  `);
+function isSheltered(way) {
+  const tags = way.tags || {};
+
+  return tags.covered === "yes" || tags.tunnel === "yes" || tags.indoor === "yes";
 }
 
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -76,6 +69,8 @@ async function fetchOsmData() {
 }
 
 async function importOsm() {
+  await ensureShelterColumn();
+
   console.log("Fetching OSM data...");
   const data = await fetchOsmData();
 
@@ -143,16 +138,18 @@ async function importOsm() {
           distance_m,
           source,
           way_id,
-          highway
+          highway,
+          is_sheltered
         )
-        VALUES ($1, $2, $3, 'osm', $4, $5)
+        VALUES ($1, $2, $3, 'osm', $4, $5, $6)
         `,
         [
           fromId,
           toId,
           distance,
           way.id,
-          way.tags?.highway || null
+          way.tags?.highway || null,
+          isSheltered(way)
         ]
       );
 
@@ -164,16 +161,18 @@ async function importOsm() {
           distance_m,
           source,
           way_id,
-          highway
+          highway,
+          is_sheltered
         )
-        VALUES ($1, $2, $3, 'osm', $4, $5)
+        VALUES ($1, $2, $3, 'osm', $4, $5, $6)
         `,
         [
           toId,
           fromId,
           distance,
           way.id,
-          way.tags?.highway || null
+          way.tags?.highway || null,
+          isSheltered(way)
         ]
       );
 

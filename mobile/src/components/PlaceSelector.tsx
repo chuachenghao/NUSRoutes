@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -19,6 +19,7 @@ type PlaceSelectorProps = {
   value: string;
   places: PlaceOption[];
   onChange: (value: string) => void;
+  onSuggestionsChange?: (showing: boolean) => void;
 };
 
 export default function PlaceSelector({
@@ -26,13 +27,14 @@ export default function PlaceSelector({
   value,
   places,
   onChange,
+  onSuggestionsChange,
 }: PlaceSelectorProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const suggestions = useMemo(() => {
     const query = value.trim().toLowerCase();
 
-    if (query.length < 2) {
+    if (!query) {
       return [];
     }
 
@@ -40,6 +42,12 @@ export default function PlaceSelector({
       .filter((place) => place.name.toLowerCase().includes(query))
       .slice(0, 6);
   }, [value, places]);
+
+  const dropdownOpen = showSuggestions && suggestions.length > 0;
+
+  useEffect(() => {
+    onSuggestionsChange?.(dropdownOpen);
+  }, [dropdownOpen, onSuggestionsChange]);
 
   function handleTextChange(text: string) {
     onChange(text);
@@ -52,7 +60,7 @@ export default function PlaceSelector({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, showSuggestions && styles.containerOpen]}>
       <Text style={styles.label}>{label}</Text>
 
       <TextInput
@@ -65,7 +73,7 @@ export default function PlaceSelector({
         autoCorrect={false}
       />
 
-      {showSuggestions && suggestions.length > 0 ? (
+      {dropdownOpen ? (
         <View style={styles.dropdown}>
           {suggestions.map((place) => (
             <Pressable
@@ -91,7 +99,11 @@ export default function PlaceSelector({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 10,
-    zIndex: 30,
+    position: "relative",
+  },
+  containerOpen: {
+    zIndex: 100,
+    elevation: 100,
   },
   label: {
     fontSize: 12,
@@ -109,12 +121,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   dropdown: {
-    marginTop: 4,
+    position: "absolute",
+    top: 62,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    minHeight: 190,
     borderWidth: 1,
     borderColor: "#dddddd",
     borderRadius: 12,
     backgroundColor: "#ffffff",
     overflow: "hidden",
+    elevation: 10,
   },
   suggestion: {
     padding: 12,

@@ -1,5 +1,11 @@
 import { useCallback, useState} from "react";
-import * as Location from "expo-location";
+
+let location: typeof import("expo-location") | null = null;
+
+try {
+    location = require("expo-location");
+} catch {}
+
 export type Coords = {
     latitude: number;
     longitude: number;
@@ -8,19 +14,20 @@ export type Coords = {
 export function useCurrentLocation(){
     const [coords, setCoords] = useState<Coords | null>(null);
     const [loadingLocation, setLoadingLocation] = useState(false);
-    const [locationMessage, setLocationMessage] = useState("");
 
     const requestLocation = useCallback(async (): Promise<Coords | null> => {
         setLoadingLocation(true);
-        setLocationMessage("");
         try {
-            const {status} = await Location.requestForegroundPermissionsAsync();
-            if (status != "granted"){
-                setLocationMessage("Location permission not granted.");
+            if (!location) {
                 return null;
             }
-            const position = await Location.getCurrentPositionAsync({
-            accuracy:Location.Accuracy.Balanced,
+
+            const {status} = await location.requestForegroundPermissionsAsync();
+            if (status != "granted"){
+                return null;
+            }
+            const position = await location.getCurrentPositionAsync({
+            accuracy:location.Accuracy.Balanced,
                 });
             const next ={
                 latitude: position.coords.latitude,
@@ -31,10 +38,10 @@ export function useCurrentLocation(){
 
 
         }
-        catch{ setLocationMessage("Could not get location.");
+        catch{
             return null;
         }
         finally{ setLoadingLocation(false);}
     },[])
-    return {coords, loadingLocation, locationMessage, requestLocation};
+    return {coords, loadingLocation, requestLocation};
   }
