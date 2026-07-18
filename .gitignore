@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# secrets / env
+.env
+**/.env
+!**/.env.example
+
+# expo / build
+.expo/
+**/.expo/
+dist/
+web-build/
+*.log
+
+# native
+ios/
+android/
+
+# os junk
+.DS_Store
+.Rhistory
+
+# large media (optional - remove if you want it tracked)
+milestone1_video.mp4
+.env.sabe
+.env.save
