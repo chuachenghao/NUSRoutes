@@ -18,6 +18,15 @@ module.exports = {
     },
     plugins: [
       [
+        // let the release APK talk to the backend over plain http (LAN testing)
+        "expo-build-properties",
+        {
+          android: {
+            usesCleartextTraffic: true,
+          },
+        },
+      ],
+      [
         "expo-location",
         {
           locationWhenInUsePermission:
