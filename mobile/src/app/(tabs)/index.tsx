@@ -41,13 +41,14 @@ export default function HomeScreen() {
     clearRoute,
   } = useRouteSearch();
 
-  // if we came from the Saved tab it sends start + end as params, so just run it
-  const { start, end } = useLocalSearchParams<{ start?: string; end?: string }>();
+  // if we came from the Saved tab it sends start + end as params, so just run it.
+  // ts is a per-tap nonce so tapping the same journey again still re-runs it
+  const { start, end, ts } = useLocalSearchParams<{ start?: string; end?: string; ts?: string }>();
   useEffect(() => {
     if (start && end) {
       runJourney(start, end);
     }
-  }, [start, end]);
+  }, [start, end, ts]);
 
   // keep the open report card in sync with the latest data (counts etc.)
   useEffect(() => {

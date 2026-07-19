@@ -37,11 +37,12 @@ export default function SavedScreen() {
         renderItem={({ item }) => (
           <Pressable
             style={styles.row}
-            // tapping sends the names back to the route tab so it runs again
+            // tapping sends the names back to the route tab so it runs again.
+            // ts changes every tap so re-tapping the same journey still re-runs it
             onPress={() =>
               router.push({
                 pathname: "/(tabs)",
-                params: { start: item.startName, end: item.endName },
+                params: { start: item.startName, end: item.endName, ts: String(Date.now()) },
               })
             }
             onLongPress={() => removeJourney(item.id)}

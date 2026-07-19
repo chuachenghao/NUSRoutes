@@ -47,12 +47,20 @@ export default function ReportForm({ coords, onSubmit, onClose }: ReportFormProp
     setDescription("");
   }
 
+  // clear the form when cancelling too, otherwise the old type/description
+  // stick around the next time you open a report somewhere else
+  function handleClose() {
+    setType("obstruction");
+    setDescription("");
+    onClose();
+  }
+
   return (
     <Modal
       visible={coords !== null}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
@@ -87,7 +95,7 @@ export default function ReportForm({ coords, onSubmit, onClose }: ReportFormProp
           />
 
           <View style={styles.actions}>
-            <Pressable style={styles.cancelBtn} onPress={onClose}>
+            <Pressable style={styles.cancelBtn} onPress={handleClose}>
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
             <Pressable style={styles.submitBtn} onPress={handleSubmit}>
