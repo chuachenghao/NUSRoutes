@@ -115,3 +115,44 @@ CREATE TABLE IF NOT EXISTS announcements (
     CONSTRAINT announcements_type_check
         CHECK (type IN ('info', 'warning', 'closure', 'disruption'))
 );
+
+-- Community reports: user-generated live campus conditions.
+CREATE TABLE IF NOT EXISTS reports (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    type TEXT NOT NULL DEFAULT 'obstruction',
+    description TEXT,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    reporter_id TEXT,
+    reporter_name TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
+    CONSTRAINT reports_type_check
+        CHECK (type IN ('obstruction', 'closure', 'crowded', 'hazard', 'other')),
+    CONSTRAINT reports_status_check
+        CHECK (status IN ('active', 'resolved')),
+    CONSTRAINT reports_latitude_check
+        CHECK (latitude BETWEEN -90 AND 90),
+    CONSTRAINT reports_longitude_check
+        CHECK (longitude BETWEEN -180 AND 180)
+);
+
+-- Per-user votes on reports (upvote = still happening, irrelevant = no longer relevant).
+CREATE TABLE IF NOT EXISTS report_votes (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    report_id BIGINT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    voter_id TEXT NOT NULL,
+    vote_type TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT report_votes_type_check
+        CHECK (vote_type IN ('upvote', 'irrelevant')),
+    CONSTRAINT report_votes_unique
+        UNIQUE (report_id, voter_id, vote_type)
+);
+
+CREATE INDEX IF NOT EXISTS reports_status_idx
+ON reports (status);
+
+CREATE INDEX IF NOT EXISTS report_votes_report_idx
+ON report_votes (report_id);
