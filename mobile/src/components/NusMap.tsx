@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 
 import { NUS_REGION } from "../constants/map";
 import type { Announcement } from "../types/announcement";
+import type { Report } from "../types/report";
 import type { RouteResponse } from "../types/route";
 import type { RouteMode } from "../types/route";
 
@@ -14,16 +15,24 @@ const ANNOUNCEMENT_PIN_COLORS: Record<Announcement["type"], string> = {
   info: "blue",
 };
 
+type LatLng = { latitude: number; longitude: number };
+
 type NusMapProps = {
   route: RouteResponse | null;
   announcements: Announcement[];
-  userCoords?: { latitude: number; longitude: number } | null;
+  reports: Report[];
+  onReportPress: (report: Report) => void;
+  onLongPress: (coords: LatLng) => void;
+  userCoords?: LatLng | null;
   routeMode: RouteMode;
 };
 
 export default function NusMap({
   route,
   announcements,
+  reports,
+  onReportPress,
+  onLongPress,
   userCoords,
   routeMode,
 }: NusMapProps) {
@@ -79,6 +88,7 @@ export default function NusMap({
         initialRegion={NUS_REGION}
         showsUserLocation
         showsMyLocationButton
+        onLongPress={(e) => onLongPress(e.nativeEvent.coordinate)}
       >
         {routeSegments.map((segment, index) =>
           segment.is_sheltered ? (
@@ -137,6 +147,22 @@ export default function NusMap({
             pinColor={ANNOUNCEMENT_PIN_COLORS[announcement.type]}
           />
         ))}
+
+        {/* community reports - show a warning triangle instead of a pin */}
+        {reports.map((report) => (
+          <Marker
+            key={`report-${report.id}`}
+            coordinate={{
+              latitude: report.latitude,
+              longitude: report.longitude,
+            }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            onPress={() => onReportPress(report)}
+            tracksViewChanges={false}
+          >
+            <Text style={styles.reportIcon}>⚠️</Text>
+          </Marker>
+        ))}
       </MapView>
 
     </View>
@@ -150,5 +176,8 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  reportIcon: {
+    fontSize: 28,
   },
 });

@@ -4,4 +4,5 @@ export const API_ENDPOINTS = {
   places: "/places",
   routes: "/routing",
   announcements: "/announcements",
+  reports: "/reports",
 } as const;
