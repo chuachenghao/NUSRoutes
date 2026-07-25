@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const routingService = require("../services/routing.service");
+const adminService = require("../services/admin.service");
 
 router.get("/", async (req, res) => {
   const { start, end, mode } = req.query;
@@ -13,6 +14,7 @@ router.get("/", async (req, res) => {
   try {
     const routeMode = mode === "sheltered" ? "sheltered" : "fastest";
     const result = await routingService.getRouteBetweenPlaces(start, end, routeMode);
+    adminService.logRouteSearch(result).catch(() => {});
     res.json(result);
   } catch (err) {
     // log error and return a controlled response

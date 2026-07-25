@@ -5,4 +5,5 @@ export const API_ENDPOINTS = {
   routes: "/routing",
   announcements: "/announcements",
   reports: "/reports",
+  adminAnalytics: "/admin/analytics",
 } as const;

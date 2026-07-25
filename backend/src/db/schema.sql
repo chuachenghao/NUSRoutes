@@ -156,3 +156,24 @@ ON reports (status);
 
 CREATE INDEX IF NOT EXISTS report_votes_report_idx
 ON report_votes (report_id);
+
+CREATE TABLE IF NOT EXISTS route_search_events (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    start_place_id BIGINT REFERENCES places(id) ON DELETE SET NULL,
+    end_place_id BIGINT REFERENCES places(id) ON DELETE SET NULL,
+    start_name TEXT NOT NULL,
+    end_name TEXT NOT NULL,
+    route_mode TEXT NOT NULL DEFAULT 'fastest',
+    distance_m DOUBLE PRECISION,
+    sheltered_ratio INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT route_search_events_mode_check
+        CHECK (route_mode IN ('fastest', 'sheltered'))
+);
+
+CREATE INDEX IF NOT EXISTS route_search_events_created_at_idx
+ON route_search_events (created_at);
+
+CREATE INDEX IF NOT EXISTS route_search_events_end_place_idx
+ON route_search_events (end_place_id);

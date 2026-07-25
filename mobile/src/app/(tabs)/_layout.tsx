@@ -51,6 +51,23 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: "Admin",
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{
+                ios: "chart.bar.fill",
+                android: "bar_chart",
+                web: "bar_chart",
+              }}
+              size={26}
+              tintColor={color}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
