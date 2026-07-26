@@ -1,5 +1,6 @@
 import { API_BASE_URL, API_ENDPOINTS } from "../constants/api";
 import type {
+  RouteAnnouncement,
   RouteCoordinate,
   RouteMode,
   RoutePlace,
@@ -46,6 +47,25 @@ function normalizeWeatherSuggestion(value: any): WeatherSuggestion | null {
   return {
     reason: String(value.reason),
   };
+}
+
+function normalizeRouteAnnouncement(item: any): RouteAnnouncement | null {
+  if (!item || typeof item !== "object") return null;
+  if (item.id === undefined || !item.title) return null;
+
+  return {
+    id: String(item.id),
+    title: String(item.title),
+    type: String(item.type ?? "info"),
+  };
+}
+
+function normalizeRouteAnnouncements(value: any): RouteAnnouncement[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(normalizeRouteAnnouncement)
+    .filter((item: RouteAnnouncement | null): item is RouteAnnouncement => item !== null);
 }
 
 function normalizeRouteSegment(segment: any): RouteSegment | null {
@@ -110,6 +130,9 @@ function normalizeRouteResponse(data: any): RouteResponse | null {
     route_mode: routeMode,
     sheltered_ratio: shelteredRatio ?? 0,
     weather_suggestion: normalizeWeatherSuggestion(data.weather_suggestion),
+    closures_nearby: normalizeRouteAnnouncements(data.closures_nearby),
+    congestion_nearby: normalizeRouteAnnouncements(data.congestion_nearby),
+    closure_ignored: Boolean(data.closure_ignored),
   };
 }
 

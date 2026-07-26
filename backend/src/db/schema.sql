@@ -113,8 +113,16 @@ CREATE TABLE IF NOT EXISTS announcements (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ,
     CONSTRAINT announcements_type_check
-        CHECK (type IN ('info', 'warning', 'closure', 'disruption'))
+        CHECK (type IN ('info', 'warning', 'closure', 'disruption', 'congestion'))
 );
+
+-- added 'congestion' , this for altering databases made before 'congestion' was added mainly for ourselves.
+ALTER TABLE announcements
+DROP CONSTRAINT IF EXISTS announcements_type_check;
+
+ALTER TABLE announcements
+ADD CONSTRAINT announcements_type_check
+    CHECK (type IN ('info', 'warning', 'closure', 'disruption', 'congestion'));
 
 -- Community reports: user-generated live campus conditions.
 CREATE TABLE IF NOT EXISTS reports (

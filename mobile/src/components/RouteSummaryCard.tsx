@@ -60,6 +60,25 @@ export default function RouteSummaryCard({
         <Text style={styles.weather}>{route.weather_suggestion.reason}</Text>
       ) : null}
 
+      {/* closures make the route go around them, congestion is only a heads up */}
+      {route.closure_ignored ? (
+        <Text style={styles.closureNote}>
+          No way around the closure, this route still goes through it.
+        </Text>
+      ) : null}
+
+      {route.closures_nearby.map((closure) => (
+        <Text key={`closure-${closure.id}`} style={styles.closureNote}>
+          Routed around: {closure.title}
+        </Text>
+      ))}
+
+      {route.congestion_nearby.map((item) => (
+        <Text key={`congestion-${item.id}`} style={styles.congestionNote}>
+          Heavy foot traffic near {item.title}
+        </Text>
+      ))}
+
       <View style={styles.row}>
         <Text style={styles.label}>From</Text>
         <Text style={styles.value}>{route.start_place?.name ?? "Unknown"}</Text>
@@ -135,6 +154,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#475569",
     marginBottom: 6,
+  },
+  closureNote: {
+    fontSize: 13,
+    color: "#dc2626",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  congestionNote: {
+    fontSize: 13,
+    color: "#7c3aed",
+    fontWeight: "700",
+    marginBottom: 4,
   },
   row: {
     marginTop: 8,

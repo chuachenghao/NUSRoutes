@@ -19,6 +19,12 @@ export type WeatherSuggestion = {
   reason: string;
 };
 
+export type RouteAnnouncement = {
+  id: string;
+  title: string;
+  type: string;
+};
+
 export type RouteResponse = {
   start_place: RoutePlace;
   end_place: RoutePlace;
@@ -28,4 +34,7 @@ export type RouteResponse = {
   route_mode: RouteMode;
   sheltered_ratio: number;
   weather_suggestion: WeatherSuggestion | null;
+  closures_nearby: RouteAnnouncement[];
+  congestion_nearby: RouteAnnouncement[];
+  closure_ignored: boolean;
 };

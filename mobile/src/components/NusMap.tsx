@@ -11,6 +11,7 @@ import type { RouteMode } from "../types/route";
 const ANNOUNCEMENT_PIN_COLORS: Record<Announcement["type"], string> = {
   closure: "red",
   disruption: "orange",
+  congestion: "purple",
   warning: "yellow",
   info: "blue",
 };

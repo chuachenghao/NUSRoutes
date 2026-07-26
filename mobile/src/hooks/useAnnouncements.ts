@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { getAnnouncements } from "../api/announcementsApi";
-import type { Announcement } from "../types/announcement";
+import {
+  createAnnouncement,
+  deleteAnnouncement,
+  getAnnouncements,
+} from "../api/announcementsApi";
+import type { Announcement, NewAnnouncement } from "../types/announcement";
 
 export function useAnnouncements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  const refresh = useCallback(async () => {
+    const data = await getAnnouncements();
+    setAnnouncements(data);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,7 +33,29 @@ export function useAnnouncements() {
     };
   }, []);
 
+  // used by the admin screen to post a new announcement
+  async function addAnnouncement(input: NewAnnouncement) {
+    const created = await createAnnouncement(input);
+
+    if (!created) return false;
+
+    setAnnouncements((prev) => [created, ...prev]);
+    return true;
+  }
+
+  async function removeAnnouncement(id: string) {
+    const ok = await deleteAnnouncement(id);
+
+    if (!ok) return false;
+
+    setAnnouncements((prev) => prev.filter((item) => item.id !== id));
+    return true;
+  }
+
   return {
     announcements,
+    refresh,
+    addAnnouncement,
+    removeAnnouncement,
   };
 }

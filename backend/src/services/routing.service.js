@@ -2,8 +2,15 @@ const pool = require("../db/pool");
 const axios = require("axios");
 const dijkstra = require("../utils/dijkstra");
 const placesService = require("./places.service");
+const announcementsService = require("./announcements.service");
 
 const WEATHER_URL = "https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast";
+
+// how close a path node has to be to a closure before it is blocked
+const CLOSURE_BLOCK_RADIUS_M = 30;
+
+// how close an announcement has to be to the finished route 
+const NEAR_PATH_RADIUS_M = 150;
 
 async function findNearestOsmNode(lat, lon) {
   const result = await pool.query(`
@@ -53,6 +60,66 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2) ** 2;
 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// collect every osm node that sits inside a closure, so routing can skip them
+async function getBlockedNodeIds(closures) {
+  if (closures.length === 0) {
+    return new Set();
+  }
+
+  const result = await pool.query(`
+    SELECT osm_id, lat, lon
+    FROM osm_nodes
+  `);
+
+  const blocked = new Set();
+
+  for (const row of result.rows) {
+    for (const closure of closures) {
+      const distance = getDistanceMeters(
+        Number(row.lat),
+        Number(row.lon),
+        Number(closure.latitude),
+        Number(closure.longitude)
+      );
+
+      if (distance <= CLOSURE_BLOCK_RADIUS_M) {
+        blocked.add(String(row.osm_id));
+        break;
+      }
+    }
+  }
+
+  return blocked;
+}
+
+// which announcements are close enough to the finished route to be worth showing
+function findAnnouncementsNearPath(announcements, coordinates) {
+  const found = [];
+
+  for (const announcement of announcements) {
+    for (const coordinate of coordinates) {
+      const distance = getDistanceMeters(
+        coordinate.latitude,
+        coordinate.longitude,
+        Number(announcement.latitude),
+        Number(announcement.longitude)
+      );
+
+      if (distance <= NEAR_PATH_RADIUS_M) {
+        found.push({
+          id: announcement.id,
+          title: announcement.title,
+          description: announcement.description,
+          type: announcement.type
+        });
+        break;
+      }
+    }
+  }
+
+  return found;
 }
 
 function isWetWeather(forecast) {
@@ -112,7 +179,32 @@ async function getRouteBetweenPlaces(startPlaceName, endPlaceName, mode = "faste
   );
 
   const routeMode = mode === "sheltered" ? "sheltered" : "fastest";
-  const route = await getShortestRoute(startNode.osm_id, endNode.osm_id, routeMode);
+
+  // closures block the route, congestion is advisory up for the user
+  const announcements = await announcementsService.getAllAnnouncements().catch((err) => {
+    console.error("Announcement fetch error:", err.message);
+    return [];
+  });
+
+  const closures = announcements.filter((item) => item.type === "closure");
+  const congestion = announcements.filter((item) => item.type === "congestion");
+  const blockedNodes = await getBlockedNodeIds(closures);
+
+  let route;
+  let closureIgnored = false;
+
+  try {
+    route = await getShortestRoute(startNode.osm_id, endNode.osm_id, routeMode, blockedNodes);
+  } catch (error) {
+    // if the closure cuts off the only way there, route through it instead of failing
+    if (blockedNodes.size === 0) {
+      throw error;
+    }
+
+    route = await getShortestRoute(startNode.osm_id, endNode.osm_id, routeMode, new Set());
+    closureIgnored = true;
+  }
+
   const weatherSuggestion = await getWeatherSuggestion().catch((err) => {
     console.error("Weather suggestion error:", err.message);
     return null;
@@ -141,7 +233,10 @@ async function getRouteBetweenPlaces(startPlaceName, endPlaceName, mode = "faste
     route_segments: route.route_segments,
     route_mode: routeMode,
     sheltered_ratio: route.sheltered_ratio,
-    weather_suggestion: weatherSuggestion
+    weather_suggestion: weatherSuggestion,
+    closures_nearby: findAnnouncementsNearPath(closures, route.coordinates),
+    congestion_nearby: findAnnouncementsNearPath(congestion, route.coordinates),
+    closure_ignored: closureIgnored
   };
 }
 
@@ -181,9 +276,15 @@ async function getCoordinatesForPath(path) {
   return coordinates;
 }
 
-async function getShortestRoute(startNodeId, endNodeId, mode = "fastest") {
+async function getShortestRoute(startNodeId, endNodeId, mode = "fastest", blockedNodes = new Set()) {
     const start = String(startNodeId);
     const end = String(endNodeId);
+
+    // places the user actually asked for or there is nothing to route between
+    const blocked = new Set(blockedNodes);
+    blocked.delete(start);
+    blocked.delete(end);
+
     const result = await pool.query(
         `
         SELECT
@@ -200,6 +301,12 @@ async function getShortestRoute(startNodeId, endNodeId, mode = "fastest") {
     for (const row of result.rows) {
         const from = String(row.from_node_id);
         const to = String(row.to_node_id);
+
+        // drop any edge touching a closure
+        if (blocked.has(from) || blocked.has(to)) {
+            continue;
+        }
+
         const distance = Number(row.distance_m);
         const sheltered = Boolean(row.is_sheltered);
         const weight = mode === "sheltered" && !sheltered ? distance * 3 : distance;
@@ -229,6 +336,7 @@ async function getShortestRoute(startNodeId, endNodeId, mode = "fastest") {
     // Ensure nodes that only appear as `to` are present in the graph
     for (const row of result.rows) {
       const to = String(row.to_node_id);
+      if (blocked.has(to)) continue;
       if (!graph[to]) graph[to] = [];
     }
 

@@ -33,6 +33,8 @@ module.exports = {
             "NUSRoutes uses your location to help you navigate on campus. ",
         },
       ],
+      // needed for the share sheet when exporting saved data as csv
+      "expo-sharing",
     ],
     android: {
       package: "com.anonymous.mobile",
